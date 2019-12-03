@@ -1,0 +1,225 @@
+---
+title: "mix6"
+author: "Allison Bray"
+date: "November 8, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+load in the data
+```{r}
+train = read.table('train.csv', sep = ',', header = 1, row.names = NULL)
+test = read.table('test.csv', sep = '-', header = 1, row.names = NULL)
+library(mice)
+library(dplyr)
+
+```
+
+remove unused columns 
+```{r}
+train[, "DAY"] = NULL
+train[, "HOUR"] = NULL
+train[, "MINUTE"] = NULL
+train[, "USAF"] = NULL
+train[, "YEAR"] = NULL
+train[, "MONTH"] = NULL
+```
+
+
+make a training set dataframe
+```{r}
+trainDF = train
+```
+
+make it a matrix
+```{r}
+train_mat = as.matrix(trainDF)
+head(train_mat)
+```
+mice
+```{r}
+imp <- mice(train_mat, method = "norm.predict", m = 1) # Impute data
+data_sto <- complete(imp) # Store data
+mice_mat = as.matrix(data_sto)
+```
+
+
+inputting mice into any nan where there are six or more nan values in a row 
+```{r}
+count = 0
+for(i in 1:(dim(train_mat)[1])){
+  
+  if(is.nan(train_mat[i,1])){
+    count = count + 1
+  }
+  else if(count > 5){
+    x = i-count
+    y = i-1
+      for(j in x:y){
+       train_mat[j,1] = mice_mat[j,1]
+       count = 0
+    }
+  }
+  else{
+    count = 0
+  }
+}
+
+count = 0
+for(i in 1:(dim(train_mat)[1])){
+  
+  if(is.nan(train_mat[i,2])){
+    count = count + 1
+  }
+  else if(count > 5){
+    x = i-count
+    y = i-1
+      for(j in x:y){
+       train_mat[j,2] = mice_mat[j,2]
+       count = 0
+    }
+  }
+  else{
+    count = 0
+  }
+}
+
+count = 0
+for(i in 1:(dim(train_mat)[1])){
+  
+  if(is.nan(train_mat[i,3])){
+    count = count + 1
+  }
+  else if(count > 5){
+    x = i-count
+    y = i-1
+      for(j in x:y){
+       train_mat[j,3] = mice_mat[j,3]
+       count = 0
+    }
+  }
+  else{
+    count = 0
+  }
+}
+
+count = 0
+for(i in 1:(dim(train_mat)[1])){
+  
+  if(is.nan(train_mat[i,4])){
+    count = count + 1
+  }
+  else if(count > 5){
+    x = i-count
+    y = i-1
+      for(j in x:y){
+       train_mat[j,4] = mice_mat[j,4]
+       count = 0
+    }
+  }
+  else{
+    count = 0
+  }
+}
+
+count = 0
+for(i in 1:(dim(train_mat)[1])){
+  
+  if(is.nan(train_mat[i,5])){
+    count = count + 1
+  }
+  else if(count > 5){
+    x = i-count
+    y = i-1
+      for(j in x:y){
+       train_mat[j,5] = mice_mat[j,5]
+       count = 0
+    }
+  }
+  else{
+    count = 0
+  }
+}
+```
+
+
+##############################
+
+## fill with push forward 
+```{r}
+#train_mat = as.matrix(trainDF)
+pushf = na.locf(train_mat, na.rm = TRUE, fromLast = TRUE)
+```
+
+
+
+## fill with push backward 
+```{r}
+pushb = na.locf(train_mat, na.rm = TRUE, fromLast = FALSE)
+#train_mat = as.matrix(trainDF)
+
+pushb[1,1] = -0.131349547
+```
+
+
+### avg pushf and pushb results
+```{r}
+pushfb = (pushf + pushb)/2
+
+head(pushfb)
+
+
+```
+
+
+```{r}
+for(i in 1:(dim(train_mat)[1])){
+   for(j in 1:5){
+    if(is.na(train_mat[i,j])){
+      train_mat[i,j] = pushfb[i,j]
+    }
+  }
+}
+```
+
+
+```{r}
+n.test = dim(test)[1]
+
+test_mat = as.matrix(test)
+result_mat_mix = test[,2]
+```
+
+using test.csv as ID key
+retrieve the new corresponding imputed values from pushfb matrix
+```{r}
+i = 1
+for(i in 1:n.test){
+  test_rindex = as.integer(test_mat[i,1])
+  test_cindex = as.integer(test_mat[i,2])
+  result_mat_mix[i] = train_mat[test_rindex,test_cindex]
+}
+
+head(result_mat_mix)
+
+test_ = read.table('test.csv', header = 1, row.names = NULL)
+```
+create df for output, col 1 ID, col 2 imputed values specified by ID key
+```{r}
+final_result_mix = data.frame(ID = as.vector(test_), 
+                          Value = as.vector(result_mat_mix))
+```
+Output data to csv
+```{r}
+write.table(final_result_mix,
+            file = 'result_mix6.csv',
+            sep = ',',
+            quote = F,
+            row.names = FALSE
+)
+```
+
+
